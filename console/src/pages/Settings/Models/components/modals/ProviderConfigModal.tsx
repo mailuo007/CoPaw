@@ -567,6 +567,10 @@ export function ProviderConfigModal({
                   label: t("models.protocolOpenAI"),
                 },
                 {
+                  value: "OpenAIResponsesChatModel",
+                  label: t("models.protocolOpenAIResponses"),
+                },
+                {
                   value: "AnthropicChatModel",
                   label: t("models.protocolAnthropic"),
                 },

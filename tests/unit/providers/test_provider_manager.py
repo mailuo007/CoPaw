@@ -397,3 +397,23 @@ def test_provider_from_data_fallback_to_openai(isolated_secret_dir) -> None:
     )
 
     assert isinstance(provider, OpenAIProvider)
+
+
+def test_provider_from_data_keeps_openai_responses_custom_provider(
+    isolated_secret_dir,
+) -> None:
+    manager = ProviderManager()
+
+    provider = manager._provider_from_data(
+        {
+            "id": "codex-proxy",
+            "name": "Codex Proxy",
+            "base_url": "https://proxy.example/v1",
+            "chat_model": "OpenAIResponsesChatModel",
+            "api_key": "sk-test",
+            "is_custom": True,
+        },
+    )
+
+    assert isinstance(provider, OpenAIProvider)
+    assert provider.chat_model == "OpenAIResponsesChatModel"

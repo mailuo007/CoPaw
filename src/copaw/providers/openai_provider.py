@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, List
+from typing import Any, ClassVar, List
 
 from agentscope.model import ChatModelBase
 from openai import APIError, AsyncOpenAI
@@ -18,6 +18,8 @@ CODING_DASHSCOPE_BASE_URL = "https://coding.dashscope.aliyuncs.com/v1"
 
 class OpenAIProvider(Provider):
     """Provider implementation for OpenAI API and compatible endpoints."""
+
+    RESPONSES_CHAT_MODEL: ClassVar[str] = "OpenAIResponsesChatModel"
 
     def _client(self, timeout: float = 5) -> AsyncOpenAI:
         return AsyncOpenAI(
@@ -88,16 +90,24 @@ class OpenAIProvider(Provider):
 
         try:
             client = self._client(timeout=timeout)
-            res = await client.chat.completions.create(
-                model=model_id,
-                messages=[{"role": "user", "content": "ping"}],
-                timeout=timeout,
-                max_tokens=1,
-                stream=True,
-            )
-            # consume the stream to ensure the model is actually responsive
-            async for _ in res:
-                break
+            if self.chat_model == self.RESPONSES_CHAT_MODEL:
+                await client.responses.create(
+                    model=model_id,
+                    input="ping",
+                    timeout=timeout,
+                    max_output_tokens=1,
+                )
+            else:
+                res = await client.chat.completions.create(
+                    model=model_id,
+                    messages=[{"role": "user", "content": "ping"}],
+                    timeout=timeout,
+                    max_tokens=1,
+                    stream=True,
+                )
+                # consume the stream to ensure the model is actually responsive
+                async for _ in res:
+                    break
             return True, ""
         except APIError:
             return False, f"API error when connecting to model '{model_id}'"
@@ -109,6 +119,7 @@ class OpenAIProvider(Provider):
 
     def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
         from .openai_chat_model_compat import OpenAIChatModelCompat
+        from .openai_responses_chat_model import OpenAIResponsesChatModel
 
         dashscope_base_urls = [
             DASHSCOPE_BASE_URL,
@@ -130,11 +141,19 @@ class OpenAIProvider(Provider):
                 ),
             }
 
-        model_instance = OpenAIChatModelCompat(
-            model_name=model_id,
-            stream=True,
-            api_key=self.api_key,
-            client_kwargs=client_kwargs,
-            generate_kwargs=self.generate_kwargs,
-        )
+        if self.chat_model == self.RESPONSES_CHAT_MODEL:
+            model_instance = OpenAIResponsesChatModel(
+                model_name=model_id,
+                api_key=self.api_key,
+                client_kwargs=client_kwargs,
+                generate_kwargs=self.generate_kwargs,
+            )
+        else:
+            model_instance = OpenAIChatModelCompat(
+                model_name=model_id,
+                stream=True,
+                api_key=self.api_key,
+                client_kwargs=client_kwargs,
+                generate_kwargs=self.generate_kwargs,
+            )
         return TokenRecordingModelWrapper(self.id, model_instance)

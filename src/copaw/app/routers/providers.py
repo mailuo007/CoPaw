@@ -14,7 +14,11 @@ from ...providers.provider_manager import ActiveModelsInfo, ProviderManager
 
 router = APIRouter(prefix="/models", tags=["models"])
 
-ChatModelName = Literal["OpenAIChatModel", "AnthropicChatModel"]
+ChatModelName = Literal[
+    "OpenAIChatModel",
+    "OpenAIResponsesChatModel",
+    "AnthropicChatModel",
+]
 
 
 def get_provider_manager(request: Request) -> ProviderManager:
@@ -155,6 +159,10 @@ class TestProviderRequest(BaseModel):
         default=None,
         description="Optional chat model class to test protocol behavior",
     )
+    generate_kwargs: Optional[dict] = Field(
+        default_factory=dict,
+        description="Optional generation kwargs to test with",
+    )
 
 
 class TestModelRequest(BaseModel):
@@ -213,6 +221,10 @@ async def test_provider(
             tmp_provider.api_key = body.api_key
         if body and body.base_url:
             tmp_provider.base_url = body.base_url
+        if body and body.chat_model:
+            tmp_provider.chat_model = body.chat_model
+        if body and body.generate_kwargs:
+            tmp_provider.generate_kwargs = body.generate_kwargs
         ok, msg = await tmp_provider.check_connection()
         return TestConnectionResponse(
             success=ok,

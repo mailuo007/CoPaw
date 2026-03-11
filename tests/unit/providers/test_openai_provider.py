@@ -147,6 +147,35 @@ async def test_check_model_connection_api_error_returns_false(
     assert msg == "API error when connecting to model 'gpt-4o-mini'"
 
 
+async def test_check_model_connection_uses_responses_api_when_selected(
+    monkeypatch,
+) -> None:
+    provider = _make_provider()
+    provider.chat_model = "OpenAIResponsesChatModel"
+    captured: list[dict] = []
+
+    class FakeResponses:
+        async def create(self, **kwargs):
+            captured.append(kwargs)
+            return SimpleNamespace(id="resp_123")
+
+    fake_client = SimpleNamespace(responses=FakeResponses())
+    monkeypatch.setattr(provider, "_client", lambda timeout=5: fake_client)
+
+    ok, msg = await provider.check_model_connection("codex1", timeout=4)
+
+    assert ok is True
+    assert msg == ""
+    assert captured == [
+        {
+            "model": "codex1",
+            "input": "ping",
+            "timeout": 4,
+            "max_output_tokens": 1,
+        },
+    ]
+
+
 async def test_update_config_updates_non_none_values_and_get_info() -> None:
     provider = _make_provider()
 
